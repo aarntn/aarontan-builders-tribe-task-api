@@ -1,12 +1,8 @@
 # Builders' Tribe Task API
 
-Good day! This is my solution for the Builders' Tribe Engineering Intern case study: a small FastAPI backend for creating and managing tasks.
+Good day. This is my solution for the Builders' Tribe Engineering Intern case study: a small FastAPI backend for creating and managing tasks.
 
 I chose to keep the project deliberately plain as the main goal here was to make the API correct, testable, and easy to explain line by line while ensuring that it's still high quality code.
-
-## Selected Extra Requirement
-
-Option B - Filtering
 
 ## What I Built
 
@@ -21,7 +17,7 @@ The API supports the required task operations:
 | PATCH | `/tasks/{task_id}/complete` | Marks a task as completed |
 | DELETE | `/tasks/{task_id}` | Deletes a task |
 
-For filtering, `GET /tasks` can filter by status and creation date:
+For the extra requirement, I picked **Option B - Filtering**. `GET /tasks` can filter by status and creation date:
 
 ```text
 GET /tasks?status=pending
@@ -43,7 +39,7 @@ This project uses:
 - Uvicorn to run the app locally
 - pytest with FastAPI's TestClient for tests
 
-I used SQLite because it keeps the project easy to run for a take-home case study.
+I used SQLite because it keeps the project easy to run for a take-home case study. If this were becoming a real multi-user production app, I would probably move the database to Postgres.
 
 ## Project Layout
 
@@ -265,15 +261,33 @@ The test suite covers the main required behavior: creating, reading, updating, c
 
 ## Assumptions I Made
 
-This is a single-user task API because I chose filtering instead of authentication. New tasks start as `pending`, completed tasks can still be edited, and idempotency protection only applies to task creation.
+This is a single-user task API because I chose filtering instead of authentication. Because of that, tasks are not connected to users and the API does not check ownership.
 
-I store timestamps using UTC. Filtering by date uses the task creation timestamp.
+New tasks start as `pending`. Completed tasks can still be edited because the case study did not say completed tasks should become locked.
+
+Task titles are not unique. I assumed two real tasks can have the same title, so duplicate prevention is handled through the `Idempotency-Key` instead of the task title.
+
+Idempotency protection only applies to task creation. I did not add idempotency keys to update, complete, or delete requests because the duplicate submission requirement was mainly about accidental duplicate `POST /tasks` requests.
+
+I store timestamps using UTC so filtering is not tied to a local timezone. Filtering by date uses the task creation timestamp, not the update timestamp.
+
+I assumed pagination was not required because the case study did not ask for it and the project is intentionally small.
 
 ## Known Limitations
 
-SQLite is fine for this assessment, but I would not use this exact database setup for a high-concurrency production app.
+SQLite is fine for this assessment, but I would not use this exact database setup for a high-concurrency production app. For a larger system, I would use a database like Postgres and add migrations.
 
-There is no authentication, no pagination, and no cleanup process for old idempotency records. I left those out because they were outside the selected case study scope.
+There is no authentication, so the API currently behaves like a single-user task list. In a real app, each task should belong to a user and every query should enforce ownership.
+
+There is no pagination. `GET /tasks` returns all matching tasks, which is acceptable for a small case study but would need pagination for a large task list.
+
+Idempotency records are stored on the task row and are kept for the lifetime of the database. In a production system, I would likely store idempotency records separately and expire old keys after a safe period.
+
+The app creates tables automatically with `Base.metadata.create_all()`. That is simple for this case study, but a production backend should use database migrations so schema changes are controlled and reversible.
+
+The filtering options are intentionally limited to `status`, `created_from`, and `created_to`. I did not add search, sorting options, or filtering by updated date because they were outside the selected requirement.
+
+The current implementation does not include advanced concurrency handling beyond the database uniqueness constraint on `idempotency_key`. The unique constraint is still important because it protects the database even if duplicate create requests happen close together.
 
 ## One Thing I Would Improve Next
 
@@ -284,3 +298,8 @@ Second, I would not store plain text passwords. Passwords should be hashed with 
 Third, I would also update the tests before changing too much code. The important tests would check that one user cannot read, update, complete, or delete another user's tasks. That would keep the main rule clear: every task belongs to one user, and the API should enforce that rule in every endpoint.
 
 Lastly, I did not include this now because authentication was not the selected option for the case study. Adding it properly would touch the database model, request flow, route dependencies, and tests, so I left it as a future improvement instead of adding a rushed version.
+
+
+
+
+Thank you! I enjoyed planning out and writing this case study. Hoping for the best.
